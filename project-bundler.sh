@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OUTPUT="project-bundle.md"
-> "$OUTPUT"
+BASE="project-bundle"
+MAX_SIZE=$((10 * 1024 * 1024)) # 10MB
+PART=1
+CURRENT_FILE="${BASE}-${PART}.md"
+CURRENT_SIZE=0
+> "$CURRENT_FILE"
 
 # まとめたい拡張子リスト
 EXTS=(
@@ -25,35 +29,54 @@ EXTS=(
   "csv" "tsv" "sql"
 )
 
-# Git 管理下のファイル一覧を配列に取得
 mapfile -t FILES < <(git ls-files)
 
-for ext in "${EXTS[@]}"; do
-  for file in "${FILES[@]}"; do
-    if [[ "$file" == *.$ext ]]; then
-      echo "## $file" >> "$OUTPUT"
+for file in "${FILES[@]}"; do
+  ext="${file##*.}"
+  if [[ " ${EXTS[*]} " == *" $ext "* ]]; then
+    header="## $file\n\`\`\`${ext}\n"
+    footer="\n\`\`\`\n\n"
+    size=$(( ${#header} + $(stat -c%s "$file") + ${#footer} ))
 
-      # 言語別のコードブロック
-      case "$ext" in
-        kt)   echo '```kotlin' >> "$OUTPUT" ;;
-        java) echo '```java' >> "$OUTPUT" ;;
-        ts)   echo '```ts' >> "$OUTPUT" ;;
-        js)   echo '```js' >> "$OUTPUT" ;;
-        json) echo '```json' >> "$OUTPUT" ;;
-        yml|yaml) echo '```yaml' >> "$OUTPUT" ;;
-        toml) echo '```toml' >> "$OUTPUT" ;;
-        md)   echo '```markdown' >> "$OUTPUT" ;;
-        txt)  echo '```text' >> "$OUTPUT" ;;
-        gradle|kts) echo '```kotlin' >> "$OUTPUT" ;;
-        *)    echo '```' >> "$OUTPUT" ;;
-      esac
-
-      cat "$file" >> "$OUTPUT"
-      echo "" >> "$OUTPUT"
-      echo '```' >> "$OUTPUT"
-      echo "" >> "$OUTPUT"
+    # 新しいファイルに切り替え
+    if (( CURRENT_SIZE + size > MAX_SIZE )); then
+      echo "📦 ${CURRENT_FILE} done (size: $CURRENT_SIZE bytes)"
+      PART=$((PART+1))
+      CURRENT_FILE="${BASE}-${PART}.md"
+      > "$CURRENT_FILE"
+      CURRENT_SIZE=0
     fi
-  done
+
+    # 出力
+    echo "## $file" >> "$CURRENT_FILE"
+    case "$ext" in
+      kt|kts|gradle) echo '```kotlin' >> "$CURRENT_FILE" ;;
+      java) echo '```java' >> "$CURRENT_FILE" ;;
+      ts|tsx) echo '```ts' >> "$CURRENT_FILE" ;;
+      js|jsx) echo '```js' >> "$CURRENT_FILE" ;;
+      json) echo '```json' >> "$CURRENT_FILE" ;;
+      yml|yaml) echo '```yaml' >> "$CURRENT_FILE" ;;
+      toml) echo '```toml' >> "$CURRENT_FILE" ;;
+      md|markdown) echo '```markdown' >> "$CURRENT_FILE" ;;
+      txt) echo '```text' >> "$CURRENT_FILE" ;;
+      py) echo '```python' >> "$CURRENT_FILE" ;;
+      go) echo '```go' >> "$CURRENT_FILE" ;;
+      rs) echo '```rust' >> "$CURRENT_FILE" ;;
+      sh|bash) echo '```bash' >> "$CURRENT_FILE" ;;
+      sql) echo '```sql' >> "$CURRENT_FILE" ;;
+      xml) echo '```xml' >> "$CURRENT_FILE" ;;
+      ini|cfg|properties) echo '```ini' >> "$CURRENT_FILE" ;;
+      *) echo '```' >> "$CURRENT_FILE" ;;
+    esac
+
+    cat "$file" >> "$CURRENT_FILE"
+    echo "" >> "$CURRENT_FILE"
+    echo '```' >> "$CURRENT_FILE"
+    echo "" >> "$CURRENT_FILE"
+
+    CURRENT_SIZE=$((CURRENT_SIZE + size))
+  fi
 done
 
-echo "✅ Done! → $OUTPUT"
+echo "✅ Done! ${PART} file(s) created."
+
