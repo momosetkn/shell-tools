@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE="project-bundle"
-MAX_SIZE=$((10 * 1024 * 1024)) # 10MB
+MAX_SIZE=$((1 * 1024 * 1024)) # 1MB
 PART=1
 CURRENT_FILE="${BASE}-${PART}.md"
 CURRENT_SIZE=0
