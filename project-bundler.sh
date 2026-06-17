@@ -29,6 +29,14 @@ EXTS=(
   "csv" "tsv" "sql"
 )
 
+file_size() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    stat -f%z "$1"
+  else
+    stat -c%s "$1"
+  fi
+}
+
 mapfile -t FILES < <(git ls-files)
 
 for file in "${FILES[@]}"; do
@@ -36,7 +44,7 @@ for file in "${FILES[@]}"; do
   if [[ " ${EXTS[*]} " == *" $ext "* ]]; then
     header="## $file\n\`\`\`${ext}\n"
     footer="\n\`\`\`\n\n"
-    size=$(( ${#header} + $(stat -c%s "$file") + ${#footer} ))
+    size=$(( ${#header} + $(file_size "$file") + ${#footer} ))
 
     # 新しいファイルに切り替え
     if (( CURRENT_SIZE + size > MAX_SIZE )); then
